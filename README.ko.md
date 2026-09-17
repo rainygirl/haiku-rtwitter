@@ -6,6 +6,8 @@ Haiku에서 X(x.com)를 전용 창으로 여는 앱이에요.
 [R Chromium](https://github.com/rainygirl/haiku-rchromium-x86)을 브라우저 툴바 없이
 띄우고, Qt는 필요 없어요.
 
+![Haiku의 R Twitter](docs/screenshot.png)
+
 ## pkgman으로 설치
 
 32비트 x86 Haiku(x86_gcc2)에서:

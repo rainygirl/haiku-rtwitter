@@ -6,6 +6,8 @@ Opens X (x.com) in its own window on Haiku, using
 [R Chromium](https://github.com/rainygirl/haiku-rchromium-x86) without the
 browser toolbar. No Qt needed.
 
+![R Twitter on Haiku](docs/screenshot.png)
+
 ## Install with pkgman
 
 On 32-bit x86 Haiku (x86_gcc2):

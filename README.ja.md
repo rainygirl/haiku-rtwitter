@@ -6,6 +6,8 @@ Haiku で X(x.com)を専用ウィンドウで開くアプリです。
 [R Chromium](https://github.com/rainygirl/haiku-rchromium-x86) をブラウザのツールバーなしで
 起動します。Qt は不要です。
 
+![Haiku の R Twitter](docs/screenshot.png)
+
 ## pkgman でインストール
 
 32 ビット x86 の Haiku(x86_gcc2)で:
