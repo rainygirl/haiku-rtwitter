@@ -23,7 +23,15 @@
 # window instead. Every installed web app on this system behaves that way.
 
 APP_TITLE="R Twitter"
-START_URL="https://x.com/"
+# /home, not /. x.com serves two different web apps, and only one of them runs
+# here. The logged-out landing page at / is a Vite build whose entry module
+# uses top-level await -- ES modules got that in Chrome 89 and this is
+# Chromium 87, so V8 stops at "SyntaxError: Unexpected reserved word", the app
+# never starts, and what is left is x.com's no-JavaScript fallback: a page
+# whose login form leads nowhere. /home is served by the older
+# responsive-web app, which parses and runs, logged out as well as in. The
+# user agent makes no difference; this is per route.
+START_URL="https://x.com/home"
 # content_shell opens 800x600 otherwise; this fits a 1600x768 VAIO P screen.
 WINDOW_SIZE="--content-shell-host-window-size=1000x700"
 
@@ -70,6 +78,9 @@ export RCH_NO_TOOLBAR RCH_APP_NAME
 
 # --disable-gpu-compositing is not optional on this backend: without it the
 # renderer blocks at startup waiting for a GPU channel that never comes.
+# --data-path, not --user-data-dir: that is Chrome's switch and content_shell
+# does not read it, so R Twitter had been sharing R Chromium's profile all
+# along. content_shell's own switch is in shell_browser_context.cc.
 exec "$APPDIR/content_shell" \
 	--ozone-platform=haiku \
 	--single-process \
@@ -77,5 +88,5 @@ exec "$APPDIR/content_shell" \
 	--in-process-gpu \
 	--disable-gpu-compositing \
 	"$WINDOW_SIZE" \
-	--user-data-dir="$HOME/config/settings/RTwitter" \
+	--data-path="$HOME/config/settings/RTwitter" \
 	"$START_URL" "$@"

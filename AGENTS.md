@@ -1,6 +1,6 @@
 # R Twitter - development notes
 
-R Twitter opens `https://x.com/` in R Chromium (the Qt-free Chromium 87 port,
+R Twitter opens `https://x.com/home` in R Chromium (the Qt-free Chromium 87 port,
 https://github.com/rainygirl/haiku-rchromium-x86) with the browser toolbar
 turned off and the window titled "R Twitter".
 
@@ -14,12 +14,12 @@ removed.
 
 A shell script, and a short one. It finds R Chromium in
 `/boot/system/apps/RChromium`, `~/config/non-packaged/apps/RChromium`, then
-`~/RChromium`, and execs its `content_shell` at `https://x.com/` with
+`~/RChromium`, and execs its `content_shell` at `https://x.com/home` with
 
 	RCH_NO_TOOLBAR=1                skips AttachBrowserChrome()
 	RCH_APP_NAME="R Twitter"        the window's title
 	--content-shell-host-window-size=1000x700
-	--user-data-dir=~/config/settings/RTwitter
+	--data-path=~/config/settings/RTwitter
 	--ozone-platform=haiku --single-process --disable-gpu
 	--in-process-gpu --disable-gpu-compositing
 
@@ -58,12 +58,45 @@ Every installed web app on this system behaves that way, so this is
 consistency rather than a special case -- but it is a regression and should be
 named as one.
 
+## x.com serves two web apps, and only the older one runs here (2026-09-23)
+
+The start URL is `https://x.com/home` rather than `https://x.com/`, and the
+difference is not cosmetic.
+
+  - `/` (logged out) is a Vite build under `abs.twimg.com/x-web/x-web/` whose
+    entry module uses **top-level await**. ES modules got that in Chrome 89;
+    R Chromium is 87. V8 stops at `SyntaxError: Unexpected reserved word`, the
+    app never starts, and what renders is x.com's no-JavaScript fallback: a
+    plain page with a login form that leads nowhere. This is deterministic,
+    and the user agent makes no difference -- spoofing Chrome 87 gets the same
+    bundle as the Chrome 999 the port claims.
+  - `/home` is the older `responsive-web/client-web` React app. It parses and
+    runs, logged out as well as in.
+
+Verified end to end on the real launcher with `scripts/sendkeys.cpp` from the
+R Chromium repo: handle `rainygirl_`, then a deliberately wrong password, and
+x.com answered "The password you entered is incorrect" -- so the form reaches
+the server and the flow is intact. No password needed to test this.
+
+If a future x.com stops serving the old app at `/home`, R Twitter stops
+working and the fix is not on this side.
+
 ## Known limitations
 
-- **Sign-in does not persist.** On Haiku R Chromium forces an off-the-record
-  (in-memory) browser context to avoid a single-process crash
-  (`shell_browser_main_parts.cc`), so `--content-shell-data-path` would not
-  help. Cookies are gone when the window closes.
+- ~~**Sign-in does not persist.**~~ **Fixed 2026-09-23.** The reasoning here
+  was half right and the conclusion was wrong. R Chromium does force an
+  off-the-record context on Haiku (`shell_browser_main_parts.cc`) to avoid a
+  single-process crash, and that does keep web storage in memory -- but the
+  cookie store is not part of the storage partition. It lives in the network
+  context, it is sqlite rather than `disk_cache`, and setting `cookie_path`
+  there gives persistent cookies without touching the subsystem that crashes.
+  R Chromium now does that, and `--data-path` (not `--user-data-dir`, which is
+  Chrome's switch and content_shell ignores) puts R Twitter's cookies in
+  `~/config/settings/RTwitter`. A sign-in survives closing the window.
+  Needs the `rchromium_x86` package at 87.0.4280.144-4 or newer.
+- **Every launch is a cold start.** The HTTP cache is still in memory, on
+  purpose: `disk_cache` is one of the subsystems named in the crash above. On
+  the VAIO x.com takes around two minutes to appear, every time.
 - **Navigation is not restricted to x.com**, and there are no back/forward
   buttons.
 - **Deskbar's task list still shows `content_shell`.** Deskbar names a running
