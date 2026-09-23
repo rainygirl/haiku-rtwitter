@@ -31,7 +31,12 @@ make
 make install        # R Twitter on the Desktop and in Deskbar -> Applications
 ```
 
-Note: sign-in to x.com is not kept after the window closes.
+There is nothing to compile: R Twitter is a launcher script that starts R
+Chromium at x.com with the toolbar off. `make` copies it and gives it R
+Twitter's icon.
+
+Notes: sign-in to x.com is not kept after the window closes, and launching R
+Twitter again opens a second window rather than raising the first.
 
 ## AI disclosure
 
