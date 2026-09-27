@@ -105,10 +105,23 @@ A caveat about how that was tested. The synthetic check --
 blocks `data:` module imports. That is not a top-level-await failure and it is
 not evidence either way; the evidence is the real bundle above.
 
-**`START_URL` stays `https://x.com/home` anyway**, for two reasons. The
-launcher has to keep working on 87, where `/` is still the dead fallback. And
-`/home` is the timeline, which is where a signed-in user wants to land. It is
-no longer a workaround, just the start page.
+**`START_URL` stays `https://x.com/home` anyway**, and the reason is not the
+one it used to be. The launcher has to keep working on 87, where `/` is still
+the dead fallback -- but on 114 the choice is a real trade, because the two
+routes are not the same speed:
+
+    https://x.com/        4-7 s     the Vite app
+    https://x.com/home    53-66 s   the responsive-web app
+
+Ten times, measured on renku with a warm profile both times, so this is the
+app and not the cache. `/home` keeps it anyway because signed in is the case
+that matters and `/home` is the one that can be relied on there: it is the
+same server-side app the 87 port was signed into and verified against.
+Signed-in `/` on 114 has not been tested and cannot be without an account. A
+start page ten times faster that might not carry a session is a bad trade for
+an app whose job is to show a timeline.
+
+`RTWITTER_URL` overrides it, which is how to try the other one.
 
 If a future x.com stops serving the old app at `/home`, the 87 port stops
 working and the fix is not on this side.
@@ -177,8 +190,12 @@ Nothing here has been run on the Atom yet.
 
     window title          "R Twitter"   (hey content_shell GET Title OF Window 0)
     x.com/ render         4-7 s, 24 runs
+    x.com/home render     53-66 s, 3 runs   <- the launcher's own start page
     cookie round trip     set, wait 60 s, kill, restart -> cookie is back
     stock libnetwork      24 of 25 loads finished inside the limit
+
+Launched from the installed Desktop copy, not a test script: the window came
+up titled "R Twitter" with no toolbar and x.com's sign-in modal rendered.
 
 The window title is the one thing the 114 port had to be taught. It is stock
 content_shell with `toolkit_views` off, which has no browser chrome and never

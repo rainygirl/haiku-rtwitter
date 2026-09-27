@@ -37,7 +37,22 @@ APP_TITLE="R Twitter"
 # not the fallback. That removes the reason / was avoided, but not the reason
 # /home is right: /home is the timeline, which is where a signed-in user wants
 # to land. So this URL is no longer a workaround, it is just the start page.
-START_URL="https://x.com/home"
+#
+# It is also the slow one, and that is worth knowing before changing it.
+# Measured on renku, 114, warm profile both times:
+#
+#     https://x.com/        4-7 s     the Vite app
+#     https://x.com/home    53-66 s   the responsive-web app
+#
+# Ten times. The difference is the app and not the cache. So why keep the slow
+# one? Because signed in is the case that matters, and /home is the one that
+# can be relied on there: it is the same server-side app the 87 port was
+# signed into and verified against. Signed-in / on 114 has not been tested and
+# cannot be without an account. A start page ten times faster that might not
+# carry a session is a bad trade for an app whose job is to show a timeline.
+#
+# RTWITTER_URL overrides it, which is how to try the other one.
+START_URL="${RTWITTER_URL:-https://x.com/home}"
 # content_shell opens 800x600 otherwise; this fits a 1600x768 VAIO P screen.
 WINDOW_SIZE="--content-shell-host-window-size=1000x700"
 
