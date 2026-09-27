@@ -106,6 +106,17 @@ RCH_NO_TOOLBAR=1
 RCH_APP_NAME="$APP_TITLE"
 export RCH_NO_TOOLBAR RCH_APP_NAME
 
+# 8192 descriptors, not the 256 a Haiku shell hands down.
+#
+# This is not the fix for the white window -- that was the size of Chromium's
+# mojo data pipes and it is fixed in the browser. It stays because 256 is a
+# low ceiling for a browser whatever else is true: every shared memory region
+# on this platform costs two descriptors, and a page that fetches a hundred
+# ES modules at once wants a few hundred of them. Chromium asks for 8192
+# itself in BrowserMainLoop::EarlyInitialization; asking here as well costs
+# nothing and does not depend on that working.
+ulimit -n 8192 2>/dev/null
+
 # --disable-gpu-compositing is not optional on this backend: without it the
 # renderer blocks at startup waiting for a GPU channel that never comes.
 # --data-path, not --user-data-dir: that is Chrome's switch and content_shell
