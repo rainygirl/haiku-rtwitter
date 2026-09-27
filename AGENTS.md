@@ -1,8 +1,15 @@
 # R Twitter - development notes
 
-R Twitter opens `https://x.com/home` in R Chromium (the Qt-free Chromium 87 port,
-https://github.com/rainygirl/haiku-rchromium-x86) with the browser toolbar
-turned off and the window titled "R Twitter".
+R Twitter opens `https://x.com/home` in R Chromium, the Qt-free Chromium port
+for Haiku, with the browser toolbar turned off and the window titled
+"R Twitter".
+
+There are two R Chromium builds now and the launcher takes either. The 87 port
+(https://github.com/rainygirl/haiku-rchromium-x86) is what the `rchromium_x86`
+package installs. The 114 port, in `../rchromium-native-x86/chromium114_port`,
+is newer in every way that matters here -- it parses what x.com serves today,
+and with `--data-path` it keeps cookies *and* an HTTP cache on disk, which 87
+cannot. R Twitter prefers it when it is installed.
 
 ## History
 
@@ -12,9 +19,10 @@ removed.
 
 ## How the launcher works (`src/RTwitter.sh`)
 
-A shell script, and a short one. It finds R Chromium in
-`/boot/system/apps/RChromium`, `~/config/non-packaged/apps/RChromium`, then
-`~/RChromium`, and execs its `content_shell` at `https://x.com/home` with
+A shell script, and a short one. It looks for R Chromium in six places --
+`/boot/system/apps`, `~/config/non-packaged/apps` and `~`, each with
+`RChromium114` before `RChromium` -- and execs the first `content_shell` it
+finds at `https://x.com/home` with
 
 	RCH_NO_TOOLBAR=1                skips AttachBrowserChrome()
 	RCH_APP_NAME="R Twitter"        the window's title
@@ -58,27 +66,51 @@ Every installed web app on this system behaves that way, so this is
 consistency rather than a special case -- but it is a regression and should be
 named as one.
 
-## x.com serves two web apps, and only the older one runs here (2026-09-23)
-
-The start URL is `https://x.com/home` rather than `https://x.com/`, and the
-difference is not cosmetic.
+## x.com serves two web apps, and 87 runs only the older one (2026-09-23)
 
   - `/` (logged out) is a Vite build under `abs.twimg.com/x-web/x-web/` whose
     entry module uses **top-level await**. ES modules got that in Chrome 89;
-    R Chromium is 87. V8 stops at `SyntaxError: Unexpected reserved word`, the
-    app never starts, and what renders is x.com's no-JavaScript fallback: a
-    plain page with a login form that leads nowhere. This is deterministic,
-    and the user agent makes no difference -- spoofing Chrome 87 gets the same
-    bundle as the Chrome 999 the port claims.
+    the 87 port is Chromium 87. V8 stops at `SyntaxError: Unexpected reserved
+    word`, the app never starts, and what renders is x.com's no-JavaScript
+    fallback: a plain page with a login form that leads nowhere. This is
+    deterministic, and the user agent makes no difference -- spoofing Chrome 87
+    gets the same bundle as the Chrome 999 the port claims.
   - `/home` is the older `responsive-web/client-web` React app. It parses and
-    runs, logged out as well as in.
+    runs on 87, logged out as well as in.
 
 Verified end to end on the real launcher with `scripts/sendkeys.cpp` from the
 R Chromium repo: handle `rainygirl_`, then a deliberately wrong password, and
 x.com answered "The password you entered is incorrect" -- so the form reaches
 the server and the flow is intact. No password needed to test this.
 
-If a future x.com stops serving the old app at `/home`, R Twitter stops
+### The 114 port runs both (2026-09-28)
+
+`/` works on 114, and it was worth checking rather than assuming, because a
+login form renders either way and the fallback looks much like the app. What
+distinguishes them is the bundle:
+
+    module script    https://abs.twimg.com/x-web/x-web/entry-client-logged-out-*.js
+    noscript count   0
+    window globals   __xClientTextFormatters
+    DOM nodes        213 right after load, 515 once the app has built the page
+    buttons          "Continue with phone", "Google 계정으로 계속하기", ...
+
+The entry module ran: it set its own global, it built the page, and it loaded
+Google's GSI client, which then localised its own button. None of that happens
+in a `<noscript>` fallback.
+
+A caveat about how that was tested. The synthetic check --
+`await import('data:text/javascript,await 0;...')` -- comes back
+`TypeError: Failed to fetch dynamically imported module`, because x.com's CSP
+blocks `data:` module imports. That is not a top-level-await failure and it is
+not evidence either way; the evidence is the real bundle above.
+
+**`START_URL` stays `https://x.com/home` anyway**, for two reasons. The
+launcher has to keep working on 87, where `/` is still the dead fallback. And
+`/home` is the timeline, which is where a signed-in user wants to land. It is
+no longer a workaround, just the start page.
+
+If a future x.com stops serving the old app at `/home`, the 87 port stops
 working and the fix is not on this side.
 
 ## Known limitations
@@ -94,9 +126,23 @@ working and the fix is not on this side.
   Chrome's switch and content_shell ignores) puts R Twitter's cookies in
   `~/config/settings/RTwitter`. A sign-in survives closing the window.
   Needs the `rchromium_x86` package at 87.0.4280.144-4 or newer.
-- **Every launch is a cold start.** The HTTP cache is still in memory, on
+- **Every launch is a cold start on 87.** The HTTP cache is in memory, on
   purpose: `disk_cache` is one of the subsystems named in the crash above. On
   the VAIO x.com takes around two minutes to appear, every time.
+
+  **Not so on 114** (2026-09-28). Stock content_shell leaves the network
+  context entirely in memory -- it sets no `file_paths` and no
+  `http_cache_directory` -- so the 114 port sets them from `--data-path`, the
+  way the 87 port set 87's flatter `cookie_path` and `http_cache_path`. The
+  profile then carries `Network/Cookies`, `Network Persistent State` and a
+  `Cache` directory, and none of it crashes: after one x.com load the cache
+  was 11.9 MB and the browser was still running. 114 does not force the
+  off-the-record context that 87 needs, so web storage lands on disk too --
+  `Local Storage/leveldb`, `Session Storage`, `Code Cache`.
+
+  The cookie store commits on a timer, roughly every 30 s. A `kill -9` inside
+  that window loses the most recent cookies, which is how the first attempt at
+  measuring this came back negative; closing the window does not.
 - **Navigation is not restricted to x.com**, and there are no back/forward
   buttons.
 - **Deskbar's task list still shows `content_shell`.** Deskbar names a running
@@ -106,17 +152,53 @@ working and the fix is not on this side.
   Renaming it would mean a copy of the binary per app, which is 219 MB each.
 - **Relaunching opens a second window** rather than raising the first. The C++
   launcher used `B_SINGLE_LAUNCH` for that; a script cannot.
-- X accepted Chromium 87's default user agent; no override is set.
+- X accepted Chromium 87's default user agent; no override is set. The 114
+  port reports `Linux x86_64` for `navigator.platform` rather than
+  `Haiku BePC`, because its `navigator_base.cc` edit joins the Linux arm. X
+  does not appear to care. It is still wrong and is recorded in the port's own
+  notes.
 - Login popups (Google/Apple) were not verified: a synthetic mouse click did not
   reach the page.
 - arm64 is untested; that port may ignore `RCH_NO_TOOLBAR`.
 - Chromium 87 gets no upstream security updates.
 
-## Testing (VAIO P, x86_gcc2)
+## Testing
+
+### VAIO P, x86_gcc2, the 87 port
 
 x.com takes 60-80 s to render on the 1.33 GHz Atom. The X sign-in page showed
 without a toolbar and with the title "R Twitter"; quitting the browser quit the
 launcher; relaunching brought the window forward.
+
+### renku, x86_gcc2, the 114 port (2026-09-28)
+
+renku is not the VAIO and these numbers are not comparable to the ones above.
+Nothing here has been run on the Atom yet.
+
+    window title          "R Twitter"   (hey content_shell GET Title OF Window 0)
+    x.com/ render         4-7 s, 24 runs
+    cookie round trip     set, wait 60 s, kill, restart -> cookie is back
+    stock libnetwork      24 of 25 loads finished inside the limit
+
+The window title is the one thing the 114 port had to be taught. It is stock
+content_shell with `toolkit_views` off, which has no browser chrome and never
+pushes a page title down to the platform window -- so the name a `BWindow` is
+born with is the name it keeps, and `haiku_beapi_views.cc` now reads
+`RCH_APP_NAME` in the constructor. `HaikuWindow::SetTitle()` honours it too,
+for whatever path might call it later. `RCH_NO_TOOLBAR` is moot on 114:
+`AttachBrowserChrome()` is compiled but nothing calls it, because the caller
+lived in the 87 overlay's `shell_platform_delegate_aura.cc`.
+
+**The launcher does not need a patched libnetwork.** Haiku's
+`res_ndestroy()` closing fd 0 (see the port repo's
+`haiku_kernel_patches/K0002`) reaches 114 as it reached 108 -- the probe fires
+0 to 10 times per load -- but it no longer breaks the load: the 114 tree carries
+the `scoped_file.cc` workaround that stops a close of fd 0, 1 or 2 being fatal,
+and with the stock system library 24 of 25 x.com loads finished. The one that
+did not showed **zero** fd-0 events and no crash, so whatever it was, it was
+not that bug; 15 loads in five minutes may simply be more than x.com wants.
+The probe's logging is now behind `RCH_FD0_PROBE=1` -- it used to print on
+every load, which is noise a user cannot act on.
 
 ## Icon and attributes
 
@@ -130,5 +212,11 @@ and Tracker shows a generic icon without them.
 
 ## Packaging
 
-`pkgman-repo/recipes/rtwitter.recipe`: x86_gcc2 (requires `rchromium_x86`) and
-arm64 (requires `rchromium`), installs `apps/R Twitter` with a Deskbar link.
+There is none in this repository any more -- the recipe was removed on request.
+`make install` puts the launcher in `~/config/non-packaged/apps/RTwitter` with
+Desktop and Deskbar copies, and that is the whole install story.
+
+The 114 port is also not packaged yet. It is run from `~/RChromium114`, whose
+shape the launcher already accepts, with its three libraries in
+`RChromium114/lib/` so Haiku's default `LIBRARY_PATH` (`%A/lib`) finds them
+without the launcher setting anything.

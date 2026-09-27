@@ -23,21 +23,36 @@
 # window instead. Every installed web app on this system behaves that way.
 
 APP_TITLE="R Twitter"
-# /home, not /. x.com serves two different web apps, and only one of them runs
-# here. The logged-out landing page at / is a Vite build whose entry module
-# uses top-level await -- ES modules got that in Chrome 89 and this is
-# Chromium 87, so V8 stops at "SyntaxError: Unexpected reserved word", the app
-# never starts, and what is left is x.com's no-JavaScript fallback: a page
-# whose login form leads nowhere. /home is served by the older
-# responsive-web app, which parses and runs, logged out as well as in. The
-# user agent makes no difference; this is per route.
+# /home, not /, and it stays that way whichever browser answers.
+#
+# x.com serves two web apps. The logged-out landing page at / is a Vite build
+# whose entry module uses top-level await -- ES modules got that in Chrome 89,
+# so on R Chromium 87 V8 stops at "SyntaxError: Unexpected reserved word", the
+# app never starts, and what renders is x.com's no-JavaScript fallback: a page
+# whose login form leads nowhere. /home is served by the older responsive-web
+# app, which parses and runs on 87 as well as on 114.
+#
+# On the 114 build / does work -- verified 2026-09-28: the entry module runs,
+# the app sets its own globals and the DOM it builds is the real landing page,
+# not the fallback. That removes the reason / was avoided, but not the reason
+# /home is right: /home is the timeline, which is where a signed-in user wants
+# to land. So this URL is no longer a workaround, it is just the start page.
 START_URL="https://x.com/home"
 # content_shell opens 800x600 otherwise; this fits a 1600x768 VAIO P screen.
 WINDOW_SIZE="--content-shell-host-window-size=1000x700"
 
 # Where R Chromium may be, most specific first: the package, a hand-installed
 # copy under ~/config, and a build installed straight into the home directory.
+#
+# The 114 directories come first, because a machine with both installed has
+# them for a reason. 114 is the newer port -- it parses what x.com serves
+# today, and with --data-path it keeps cookies and an HTTP cache on disk,
+# which 87 cannot. 87 stays in the list and stays working; nothing here
+# requires 114.
 for dir in \
+	"/boot/system/apps/RChromium114" \
+	"$HOME/config/non-packaged/apps/RChromium114" \
+	"$HOME/RChromium114" \
 	"/boot/system/apps/RChromium" \
 	"$HOME/config/non-packaged/apps/RChromium" \
 	"$HOME/RChromium"
