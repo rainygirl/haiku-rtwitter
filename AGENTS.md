@@ -197,6 +197,35 @@ Nothing here has been run on the Atom yet.
 Launched from the installed Desktop copy, not a test script: the window came
 up titled "R Twitter" with no toolbar and x.com's sign-in modal rendered.
 
+### Signing in works, after four separate fixes (2026-09-28)
+
+Entering a handle and pressing Continue reaches the password or passkey step.
+Getting there took four fixes, none of them the same bug, and all four looked
+like "a white window" or "the window went away" from the outside. Three are in
+the port repo and one is in Haiku itself; they are written up in
+`../rchromium-native-x86/chromium114_port/README.md` and
+`haiku_kernel_patches/K0003`. In short:
+
+  - **2 MB mojo data pipes.** A hundred parallel ES module fetches ask for
+    200 MB of shared memory in one burst; in a 32-bit process on a 2 GB
+    machine the allocations fail and the modules never arrive.
+    `ERR_INSUFFICIENT_RESOURCES`, and a white window. Haiku now takes the
+    512 KB default that ChromeOS takes.
+  - **A kernel panic**, which the smaller pipes exposed rather than caused: an
+    unsigned underflow in `VMUserAddressSpace::_InsertAreaSlot()`'s
+    reserved-area fallback, reachable from an ordinary `mmap()` once the
+    address space is fragmented.
+  - **A stale `lib/x86/libnetwork.so`.** Haiku fixed `res_ndestroy()` closing
+    descriptor 0 on 2026-09-03; the test machine's secondary-architecture
+    library was built on 2026-08-15. The primary had the fix. A gcc13
+    Chromium loads the secondary.
+  - **No `HidService`.** x.com asks for the HID device list -- a passkey is a
+    HID device -- and `HidManagerImpl` calls `AddObserver()` on the null that
+    `HidService::Create()` returns for an unknown platform.
+
+What this means for the launcher: nothing changed in `src/RTwitter.sh` for any
+of them. They were all below it.
+
 The window title is the one thing the 114 port had to be taught. It is stock
 content_shell with `toolkit_views` off, which has no browser chrome and never
 pushes a page title down to the platform window -- so the name a `BWindow` is
