@@ -60,10 +60,12 @@ WINDOW_SIZE="--content-shell-host-window-size=1000x700"
 # copy under ~/config, and a build installed straight into the home directory.
 #
 # The 114 directories come first, because a machine with both installed has
-# them for a reason. 114 is the newer port -- it parses what x.com serves
-# today, and with --data-path it keeps cookies and an HTTP cache on disk,
-# which 87 cannot. 87 stays in the list and stays working; nothing here
-# requires 114.
+# them for a reason. 114 parses what x.com serves today and keeps cookies and
+# an HTTP cache on disk; 87 does neither. Since 2026-09-28 the rchromium
+# package ships 114 under the plain RChromium name, so most machines will
+# match on the fourth line -- the RChromium114 entries are for a build put
+# there by hand, which is how 114 was installed before it was packaged. 87
+# stays in the list and stays working; nothing here requires 114.
 for dir in \
 	"/boot/system/apps/RChromium114" \
 	"$HOME/config/non-packaged/apps/RChromium114" \

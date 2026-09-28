@@ -226,6 +226,29 @@ the port repo and one is in Haiku itself; they are written up in
 What this means for the launcher: nothing changed in `src/RTwitter.sh` for any
 of them. They were all below it.
 
+### And then R Chromium learned to do this itself (2026-09-28)
+
+The 114 port now carries the shell-side half of the native toolbar, which the
+87 port had and 114 had been missing: back, forward, reload, an address field,
+bookmarks, and an install button. Pressing it on a page with a web app
+manifest writes exactly the kind of launcher this repository ships -- a script
+in `~/config/non-packaged/apps`, a Deskbar link, and the site's own icon
+scaled into the file's attributes. Verified on x.com:
+
+    [RCH] AttachBrowserChrome widget=1 inset=30
+    [RCH] manifest page=https://x.com/ installable=1 name="X" icons=4
+    [RCH] installed "X" -> /boot/home/config/non-packaged/apps/X/X (deskbar: listed)
+    [RCH] icon 512x512 -> .../X: set
+
+So this repository is no longer the only way to get x.com as an application,
+and the `rchromium` package deliberately does not depend on `rtwitter`: a
+browser requiring a Twitter launcher is backwards, and installing a web app is
+something the browser does rather than something its package declares.
+
+What is left here that the button does not give you: an icon drawn for R
+Twitter rather than x.com's X mark, and a name that stays R Twitter. That was
+the point of this repository from the first commit.
+
 The window title is the one thing the 114 port had to be taught. It is stock
 content_shell with `toolkit_views` off, which has no browser chrome and never
 pushes a page title down to the platform window -- so the name a `BWindow` is

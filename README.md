@@ -13,11 +13,27 @@ browser toolbar. No Qt needed.
 On 32-bit x86 Haiku (x86_gcc2):
 
 ```sh
+curl -fsSL https://pkgman.rainygirl.com/install-rchromium114.sh | sh
+```
+
+That installs R Chromium 114 and R Twitter together, and checks first for the
+two Haiku fixes Chromium 114 needs -- one of which panics the kernel rather
+than the browser if it is missing. To install the packages alone:
+
+```sh
 pkgman add-repo https://pkgman.rainygirl.com/x86_gcc2
-pkgman install rtwitter        # also installs rchromium_x86 (~200 MB)
+pkgman install rtwitter        # also installs rchromium_x86 (~300 MB)
 ```
 
 Then start **R Twitter** from Deskbar -> Applications.
+
+### Or make it yourself
+
+R Twitter is a web app installed from a manifest, and R Chromium can do that
+to any site: open x.com, press the install button in the toolbar, and you get
+the same thing -- a launcher in the Applications menu, named and iconed from
+the site's own manifest. This package is that, prepared, with an icon drawn
+for it rather than taken from x.com.
 
 If `pkgman add-repo` fails with `Operation not supported`, the network kit of
 that image has no TLS; use `http://pkgman.rainygirl.com/x86_gcc2` instead.
