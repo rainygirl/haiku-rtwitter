@@ -119,6 +119,15 @@ export RCH_NO_TOOLBAR RCH_APP_NAME
 # nothing and does not depend on that working.
 ulimit -n 8192 2>/dev/null
 
+# x.com lists the media devices, and with no video capture backend on Haiku
+# R Chromium 154 (arm64) crashed in VideoCaptureSystemImpl doing so; the fake
+# capture device is what keeps it up. The 114 build for x86 was verified
+# without it, so it is left as it was.
+FAKE_CAPTURE=
+case "$(uname -m)" in
+	arm64|aarch64) FAKE_CAPTURE="--use-fake-device-for-media-stream" ;;
+esac
+
 # --disable-gpu-compositing is not optional on this backend: without it the
 # renderer blocks at startup waiting for a GPU channel that never comes.
 # --data-path, not --user-data-dir: that is Chrome's switch and content_shell
@@ -130,6 +139,7 @@ exec "$APPDIR/content_shell" \
 	--disable-gpu \
 	--in-process-gpu \
 	--disable-gpu-compositing \
+	$FAKE_CAPTURE \
 	"$WINDOW_SIZE" \
 	--data-path="$HOME/config/settings/RTwitter" \
 	"$START_URL" "$@"
