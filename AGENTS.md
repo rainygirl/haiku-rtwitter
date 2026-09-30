@@ -298,6 +298,53 @@ the other, so one launcher covers 87, 114 and 154.
 Shipped as rtwitter 1.1.0-3 for arm64. The x86 side is unaffected in
 behaviour: 114 still reads `--data-path`.
 
+### And it went away again, for a third reason (2026-09-30)
+
+With both of those fixed the report came back unchanged -- "I finish signing
+in and the app closes, and next time it asks me to sign in again". Neither
+half of that was what it looked like.
+
+**It was not a crash.** Haiku's `debug_server` writes a line to the syslog for
+every team it kills, and there was none. What there was, once the launcher's
+stderr was captured to a file, was V8's own fatal banner:
+
+	# Fatal error
+	# Check failed: success.
+	Received signal 30 BUS_ADRALN
+	=== exit status 158
+
+`CHECK(success)` in `BoundedPageAllocator::FreePages`, on a `DecommitPages`
+that came back ENOMEM: `mmap(MAP_FIXED, PROT_NONE)` over a live range, with no
+`MAP_NORESERVE` and with an address space a long-running renderer has
+fragmented. The fix is in the browser -- `rchromium-native-arm64`'s
+`port/port-v8.py`, written up there -- and again **nothing in
+`src/RTwitter.sh` changed for it**. All three of this app's arm64 bugs have
+been below the launcher.
+
+**And it was not a second bug about the session.** The cookie store writes on a
+timer, so a process that dies a minute after a sign-in has never written
+`auth_token` to `~/config/settings/RTwitter/Network/Cookies`. Verified both
+ways on the guest once the browser stayed up: sign in, quit, start again, and
+the timeline comes straight up with `auth_token`, `ct0`, `twid` and
+`cf_clearance` on disk.
+
+**What it cost to find, and the one thing that made it findable:** the packaged
+launcher is started by Tracker, whose stderr goes nowhere, so the fatal banner
+was being thrown away. A wrapper in `~/config/non-packaged/apps/RTwitter` that
+does nothing but run the packaged launcher with `>> log 2>&1` and record `$?`,
+with the Desktop symlink pointed at it, is what turned "the window vanished"
+into a stack address. That is worth remembering for the next one: there is no
+crash report to go back to, because the port's own signal handler prints and
+exits before `debug_server` sees anything.
+
+**A separate defect found on the way, not yet fixed.** On the 154 port
+`PublicKeyCredential.isConditionalMediationAvailable()` answers `true` while
+`isUserVerifyingPlatformAuthenticatorAvailable()` answers `false`, and
+`navigator.credentials.get()` and `create()` then neither resolve nor reject.
+x.com reads the first answer as permission to offer a passkey, so a handle
+whose account has one lands on a "Sign in with passkey" screen that sits on a
+spinner for ever. A password sign-in is unaffected.
+
 ## Icon and attributes
 
 `tools/make_icon.py` projects Wikimedia Commons' `Logo of Twitter.svg`
