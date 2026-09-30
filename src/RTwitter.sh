@@ -108,6 +108,26 @@ RCH_NO_TOOLBAR=1
 RCH_APP_NAME="$APP_TITLE"
 export RCH_NO_TOOLBAR RCH_APP_NAME
 
+# Keep what the browser says about itself.
+#
+# Tracker gives a launched application no terminal, so everything
+# content_shell writes to stderr goes nowhere -- and when this app vanished
+# after a sign-in on arm64 (2026-09-30), what was going nowhere was V8's
+# fatal banner naming the CHECK that ended the process. It took a hand-made
+# wrapper doing exactly this to find it. Two runs are kept: the current one
+# and the one before, which is the pair you want when something goes wrong
+# and you restart the app before thinking to look.
+#
+# Not when stderr is a terminal: if you started this from a shell, the output
+# belongs on your screen.
+if [ ! -t 2 ]; then
+	mkdir -p "$HOME/config/settings/RTwitter"
+	LOG="$HOME/config/settings/RTwitter/rtwitter.log"
+	[ -f "$LOG" ] && mv -f "$LOG" "$LOG.1"
+	exec >> "$LOG" 2>&1
+	echo "=== $APP_TITLE $(date)"
+fi
+
 # 8192 descriptors, not the 256 a Haiku shell hands down.
 #
 # This is not the fix for the white window -- that was the size of Chromium's
@@ -127,6 +147,28 @@ FAKE_CAPTURE=
 case "$(uname -m)" in
 	arm64|aarch64) FAKE_CAPTURE="--use-fake-device-for-media-stream" ;;
 esac
+
+# No WebAuthn, because there is no authenticator and the API says there is.
+#
+# R Chromium answers PublicKeyCredential.isConditionalMediationAvailable()
+# with true while isUserVerifyingPlatformAuthenticatorAvailable() answers
+# false, and navigator.credentials.get() then neither resolves nor rejects.
+# x.com reads the first answer as permission to offer a passkey, so a handle
+# whose account has one lands on a "Sign in with passkey" screen that sits on
+# a spinner for ever -- with no way back to the password form. Turning the
+# feature off removes window.PublicKeyCredential, which is the thing sites
+# feature-detect, so x.com offers the password form instead.
+#
+# This belongs in the browser rather than here; it is in the launcher because
+# it is one flag and needs no new build. Take it out when R Chromium grows a
+# real authenticator.
+#
+# Put it before the URL. Appended after $START_URL instead, it did not take
+# effect -- window.PublicKeyCredential was still there -- while
+# --remote-debugging-port passed the same way did work. Both measured on the
+# arm64 guest, 2026-09-30; the reason for the difference was not chased, and
+# the position that works is the one this line uses.
+NO_WEBAUTHN="--disable-blink-features=WebAuth"
 
 # --disable-gpu-compositing is not optional on this backend: without it the
 # renderer blocks at startup waiting for a GPU channel that never comes.
@@ -152,6 +194,7 @@ exec "$APPDIR/content_shell" \
 	--in-process-gpu \
 	--disable-gpu-compositing \
 	$FAKE_CAPTURE \
+	$NO_WEBAUTHN \
 	"$WINDOW_SIZE" \
 	--data-path="$PROFILE" \
 	--user-data-dir="$PROFILE" \

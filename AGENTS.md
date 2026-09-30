@@ -27,9 +27,19 @@ finds at `https://x.com/home` with
 	RCH_NO_TOOLBAR=1                skips AttachBrowserChrome()
 	RCH_APP_NAME="R Twitter"        the window's title
 	--content-shell-host-window-size=1000x700
-	--data-path=~/config/settings/RTwitter
+	--data-path=~/config/settings/RTwitter      (87 and 114)
+	--user-data-dir=~/config/settings/RTwitter  (154)
+	--disable-blink-features=WebAuth
 	--ozone-platform=haiku --single-process --disable-gpu
 	--in-process-gpu --disable-gpu-compositing
+
+It also raises the descriptor limit to 8192, adds
+`--use-fake-device-for-media-stream` on arm64, and, when stderr is not a
+terminal, sends the browser's output to
+`~/config/settings/RTwitter/rtwitter.log` (previous run kept as `.log.1`).
+That last one is not cosmetic: Tracker gives a launched application no
+terminal, so until 2026-09-30 everything content_shell said about itself went
+nowhere, including the fatal message naming the bug that was killing it.
 
 If no R Chromium is installed it shows an `alert` naming the package
 (`rchromium_x86` on 32-bit x86, `rchromium` elsewhere) and exits 1.
@@ -337,13 +347,27 @@ into a stack address. That is worth remembering for the next one: there is no
 crash report to go back to, because the port's own signal handler prints and
 exits before `debug_server` sees anything.
 
-**A separate defect found on the way, not yet fixed.** On the 154 port
-`PublicKeyCredential.isConditionalMediationAvailable()` answers `true` while
-`isUserVerifyingPlatformAuthenticatorAvailable()` answers `false`, and
-`navigator.credentials.get()` and `create()` then neither resolve nor reject.
-x.com reads the first answer as permission to offer a passkey, so a handle
-whose account has one lands on a "Sign in with passkey" screen that sits on a
-spinner for ever. A password sign-in is unaffected.
+### A passkey screen that never finishes (worked around 2026-09-30)
+
+Found while driving the sign-in form, and separate from everything above. On
+the 154 port `PublicKeyCredential.isConditionalMediationAvailable()` answers
+`true` while `isUserVerifyingPlatformAuthenticatorAvailable()` answers
+`false`, and `navigator.credentials.get()` and `create()` then neither resolve
+nor reject -- they hang. x.com reads the first answer as permission to offer a
+passkey, so a handle whose account has one lands on "Sign in with passkey"
+with a spinner that never stops and no way back to the password form.
+
+The launcher now passes `--disable-blink-features=WebAuth`, which removes
+`window.PublicKeyCredential` -- the thing sites feature-detect -- so x.com
+offers the password form instead. Verified on the guest: `typeof
+PublicKeyCredential` is `undefined` and the timeline loads signed in.
+
+Two things about it are worth keeping. The flag has to come **before** the
+URL; appended after `$START_URL` it did not take, while
+`--remote-debugging-port` passed the same way did. The reason was not chased.
+And this belongs in the browser, not here: R Chromium itself will still hang
+on any passkey site. It is in the launcher because it is one flag and needs no
+new build, and it should come out when the port grows a real authenticator.
 
 ## Icon and attributes
 
