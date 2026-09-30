@@ -269,6 +269,35 @@ not that bug; 15 loads in five minutes may simply be more than x.com wants.
 The probe's logging is now behind `RCH_FD0_PROBE=1` -- it used to print on
 every load, which is noise a user cannot act on.
 
+## arm64: the sign-in crash, and a switch that had been renamed (2026-09-30)
+
+Two things, found by driving the arm64 guest.
+
+**Entering a handle and pressing Continue killed the browser**, in under a
+second, every time -- a SEGV, which is why the window simply vanished rather
+than closing. It is `HidService::Create()` returning nullptr on Haiku and
+`HidManagerImpl`'s constructor observing that null; x.com asks for the HID
+device list because a passkey is a HID device. Fixed in the port
+(`../rchromium-native-arm64/port/port-hid-haiku.py`), shipped as rchromium
+154.0.8036.0-8. `navigator.hid.getDevices()` does not reproduce it -- with no
+granted permissions it answers with an empty list without binding the service,
+which is a false negative worth knowing about.
+
+**`--data-path` does nothing on 154.** content_shell renamed its own switch:
+
+    87, 114   --data-path
+    154       --user-data-dir   (kContentShellUserDataDir, shell_switches.h)
+
+Chrome's `--user-data-dir` is a different switch, which is what the comment in
+this launcher used to warn about -- correctly, for 114. The result on arm64
+was that `~/config/settings/RTwitter` was never created and R Twitter shared
+R Chromium's profile, exactly what the switch was added to prevent. The
+launcher now passes both names; each build reads the one it knows and ignores
+the other, so one launcher covers 87, 114 and 154.
+
+Shipped as rtwitter 1.1.0-3 for arm64. The x86 side is unaffected in
+behaviour: 114 still reads `--data-path`.
+
 ## Icon and attributes
 
 `tools/make_icon.py` projects Wikimedia Commons' `Logo of Twitter.svg`

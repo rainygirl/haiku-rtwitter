@@ -130,9 +130,21 @@ esac
 
 # --disable-gpu-compositing is not optional on this backend: without it the
 # renderer blocks at startup waiting for a GPU channel that never comes.
-# --data-path, not --user-data-dir: that is Chrome's switch and content_shell
-# does not read it, so R Twitter had been sharing R Chromium's profile all
-# along. content_shell's own switch is in shell_browser_context.cc.
+#
+# Both profile switches, because content_shell renamed its own between the
+# two builds this launcher has to work with:
+#
+#   87, 114   --data-path        (content/shell/browser/shell_browser_context.cc)
+#   154       --user-data-dir    (kContentShellUserDataDir in shell_switches.h)
+#
+# Chrome's --user-data-dir is a different switch entirely, which is why the
+# comment here used to warn against it -- correctly, for 114. On 154 the name
+# content_shell chose for its own switch happens to be that one. Each build
+# reads the name it knows and ignores the other, so passing both is what
+# keeps one launcher working on all three. Measured on the arm64 guest:
+# with only --data-path, ~/config/settings/RTwitter was never created and
+# R Twitter shared R Chromium's default profile.
+PROFILE="$HOME/config/settings/RTwitter"
 exec "$APPDIR/content_shell" \
 	--ozone-platform=haiku \
 	--single-process \
@@ -141,5 +153,6 @@ exec "$APPDIR/content_shell" \
 	--disable-gpu-compositing \
 	$FAKE_CAPTURE \
 	"$WINDOW_SIZE" \
-	--data-path="$HOME/config/settings/RTwitter" \
+	--data-path="$PROFILE" \
+	--user-data-dir="$PROFILE" \
 	"$START_URL" "$@"
